@@ -22,6 +22,7 @@ Resources:
     Type: AWS::SecretsManager::Secret
     Properties:
       Name: '/credentials/mlschool'
+      Description: 'Access credentials for the Machine Learning School user'
       SecretString: !GetAtt UserCredentials.SecretAccessKey
 
   Role:
@@ -123,9 +124,26 @@ Resources:
                   - "ecr:PutImage"
                 Resource:
                   - "*"
+              
+              - Effect: "Allow"
+                Sid: "CloudWatchLogs"
+                Action:
+                  - "logs:PutLogEvents"
+                  - "logs:UpdateLogDelivery"
+                  - "logs:CreateLogStream"
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogDelivery"
+                  - "logs:GetLogRecord"
+                  - "logs:GetLogEvents"
+                  - "logs:GetLogDelivery"
+                  - "logs:FilterLogEvents"
+                  - "logs:ListLogDeliveries"
+                  - "logs:DeleteLogDelivery"                  
+                Resource:
+                  - "*"
 
               - Effect: "Allow"
-                Sid: "SageMaker"
+                Sid: "Sagemaker"
                 Action:
                   - "sagemaker:ListEndpoints"
                   - "sagemaker:DescribeEndpoint"
@@ -151,6 +169,7 @@ Resources:
                   - "ssm:DeleteParameter"
                 Resource: 
                   - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/ec2/keypair/*"
+                  - !Sub "arn:aws:ssm:${AWS::Region}::parameter/aws/service/canonical/ubuntu/server/*"
 
               - Effect: "Allow"
                 Sid: "States"
@@ -164,7 +183,7 @@ Resources:
                   - "states:StopExecution"
                 Resource:
                   - !Sub 'arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:*'
-
+              
               - Effect: "Allow"
                 Sid: "S3"
                 Action:
@@ -177,12 +196,27 @@ Resources:
                   - "s3:GetObject"
                   - "s3:DeleteObject"
                 Resource:
-                  - !Sub "arn:aws:s3:::*"
+                  - "arn:aws:s3:::*"
 
+  # Create an S3 bucket with a unique name using the stack UUID suffix.
   Bucket:
     Type: 'AWS::S3::Bucket'
     Properties:
-      BucketName: !Sub 'mlschool-${AWS::AccountId}'
+      BucketName: !Join 
+        - '-'
+        - - 'mlschool'
+          - !Select [2, !Split ['/', !Ref AWS::StackId]]
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
 
   UserPolicy:
     Type: 'AWS::IAM::Policy'
